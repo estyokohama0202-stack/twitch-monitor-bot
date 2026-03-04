@@ -12,8 +12,14 @@ last_title = None
 
 TWITCH_COLOR = 9146
 
+token = None
+token_time = 0
+
 
 def get_token():
+
+    global token
+    global token_time
 
     r = requests.post(
         "https://id.twitch.tv/oauth2/token",
@@ -24,10 +30,13 @@ def get_token():
         }
     )
 
-    return r.json()["access_token"]
+    data = r.json()
+
+    token = data["access_token"]
+    token_time = time.time()
 
 
-def get_stream(token):
+def get_stream():
 
     headers = {
         "Client-ID": CLIENT_ID,
@@ -75,26 +84,33 @@ def main():
 
     global last_title
 
-    token = get_token()
+    get_token()
 
     while True:
 
-        stream = get_stream(token)
+        try:
 
-        if stream:
+            # トークン更新（約1時間ごと）
+            if time.time() - token_time > 3500:
+                get_token()
 
-            title = stream["title"]
+            stream = get_stream()
 
-            # 初回保存
-            if last_title is None:
-                last_title = title
+            if stream:
 
-            # タイトル変更検知
-            if title != last_title:
+                title = stream["title"]
 
-                send_title(last_title, title)
+                if last_title is None:
+                    last_title = title
 
-                last_title = title
+                if title != last_title:
+
+                    send_title(last_title, title)
+
+                    last_title = title
+
+        except Exception as e:
+            print("error:", e)
 
         time.sleep(60)
 
